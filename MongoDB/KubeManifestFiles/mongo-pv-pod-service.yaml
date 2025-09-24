@@ -1,0 +1,76 @@
+# PersistentVolume (PV)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongo-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    path: "/Storage/PVC-DATA/MongoDB"
+
+
+---
+# PersistentVolumeClaim (PVC)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-pvc
+  namespace: infra
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: manual 
+
+---
+# MongoDB Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongo
+  namespace: infra
+  labels:
+    app: mongo
+spec:
+  containers:
+    - name: mongo
+      image: mongo:6.0
+      ports:
+        - containerPort: 27017
+      volumeMounts:
+        - name: mongo-storage
+          mountPath: /data/db
+      resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+  volumes:
+    - name: mongo-storage
+      persistentVolumeClaim:
+        claimName: mongo-pvc
+
+---
+# NodePort Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+  namespace: infra 
+spec:
+  type: NodePort
+  selector:
+    app: mongo
+  ports:
+    - port: 27017         # Service port
+      targetPort: 27017   # Container port
+      nodePort: 32017     # NodePort (must be 30000–32767)
